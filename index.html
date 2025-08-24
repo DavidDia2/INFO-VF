@@ -1632,7 +1632,90 @@ menuLinks.forEach(link => {
         
         // --- LÓGICA DEL PANEL DE CONSULTA PRINCIPAL ---
         function setupSearch(sheetData) { searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const searchTerm = searchInput.value.trim().toLowerCase(); if (searchTerm.length === 0) return; searchCount++; localStorage.setItem('searchCount_v1', searchCount); updateCounterDisplay(); const filteredData = sheetData.map(row => ({...row})).filter(row => { const isNumericSearch = /^\d+$/.test(searchTerm); if (isNumericSearch) { return String(row.Tienda).toLowerCase() === searchTerm; } else { return Object.values(row).some(value => String(value).toLowerCase().includes(searchTerm)); } }); displayResults(filteredData, resultsContainer, initialMessage, noResultsMessage, searchInput.value); } }); searchInput.addEventListener('input', () => clearButton.classList.toggle('hidden', searchInput.value.length === 0)); clearButton.addEventListener('click', () => { searchInput.value = ''; displayResults([], resultsContainer, initialMessage, noResultsMessage, searchInput.value); searchInput.focus(); }); }
-        function populateFilters(data){ try { /* disabled by Davoo hotfix; see #davoo-hotfix-filters */ return; } catch(e){} }function setupFilterLogic(sheetData) { filterButton.addEventListener('click', () => { const selectedProvincia = provinciaFilter.value; const selectedLocalidad = localidadFilter.value; const filteredData = sheetData.filter(row => { const matchProvincia = !selectedProvincia || row.Provincia === selectedProvincia; const matchLocalidad = !selectedLocalidad || row.Localidad === selectedLocalidad; return matchProvincia && matchLocalidad; }); displayZoneResults(filteredData); }); }
+        function populateFilters(data){
+  try{
+    // Normalizamos y construimos listas únicas
+    const provincias = Array.from(new Set(
+      data.map(r => String(r.Provincia || '').trim()).filter(Boolean)
+    )).sort((a,b)=>a.localeCompare(b,'es'));
+
+    const localidadesByProv = {};
+    data.forEach(r => {
+      const p = String(r.Provincia || '').trim();
+      const l = String(r.Localidad || '').trim();
+      if (!p || !l) return;
+      if (!localidadesByProv[p]) localidadesByProv[p] = new Set();
+      localidadesByProv[p].add(l);
+    });
+
+    // Pintamos selects
+    provinciaFilter.innerHTML = '<option value=\"\">Todas</option>' +
+      provincias.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    // Localidades inicial: todas
+    const allLocs = Array.from(new Set(
+      data.map(r => String(r.Localidad || '').trim()).filter(Boolean)
+    )).sort((a,b)=>a.localeCompare(b,'es'));
+    localidadFilter.innerHTML = '<option value=\"\">Todas</option>' +
+      allLocs.map(l => `<option value="${l}">${l}</option>`).join('');
+
+    // Guardamos en ventana para reuso
+    window.__zoneData = data;
+    window.__localidadesByProv = localidadesByProv;
+
+    // Encadenado: al cambiar provincia, recalcular localidades
+    provinciaFilter.addEventListener('change', () => {
+      const p = provinciaFilter.value;
+      let locs = [];
+      if (p && localidadesByProv[p]) {
+        locs = Array.from(localidadesByProv[p]);
+      } else {
+        locs = allLocs.slice();
+      }
+      locs.sort((a,b)=>a.localeCompare(b,'es'));
+      localidadFilter.innerHTML = '<option value=\"\">Todas</option>' +
+        locs.map(l => `<option value="${l}">${l}</option>`).join('');
+      applyZoneFilters();
+    });
+
+    // Al cambiar localidad, aplicar inmediatamente
+    localidadFilter.addEventListener('change', applyZoneFilters);
+
+    // Aplicar filtros con botón si existe
+    if (typeof filterButton !== 'undefined' && filterButton) {
+      filterButton.addEventListener('click', applyZoneFilters);
+    }
+
+    // Iniciar sin resultados (evita render pesado)
+    displayZoneResults([]);
+  }catch(e){
+    console.error('populateFilters error:', e);
+  }
+}
+
+// Función global para aplicar filtros de Zona
+function applyZoneFilters(){
+  try{
+    const p = (provinciaFilter && provinciaFilter.value) || '';
+    const l = (localidadFilter && localidadFilter.value) || '';
+    const data = window.__zoneData || [];
+
+    const filtered = data.filter(row => {
+      const matchP = !p || String(row.Provincia || '').trim() === p;
+      const matchL = !l || String(row.Localidad || '').trim() === l;
+      return matchP && matchL;
+    });
+    displayZoneResults(filtered);
+  }catch(e){
+    console.error('applyZoneFilters error:', e);
+  }
+}function setupFilterLogic(sheetData){
+  // Conservamos el click del botón, pero ya aplicamos también onChange en populateFilters()
+  if (!filterButton) return;
+  filterButton.addEventListener('click', () => {
+    applyZoneFilters();
+  });
+}
 
         // --- LÓGICA DEL PANEL DE PROVEEDORES ---
         function loadProviderData() {
