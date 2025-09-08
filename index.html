@@ -4950,135 +4950,122 @@
         try { mountFocusPath(); } catch (e) { /* silent */ }
       });
 
-      /* ---------------- Mini Gantt (Cronograma) ---------------- */
-      function mountMiniGantt() {
-        const panel = document.getElementById('panel-cronograma') || document.body;
-        if (!panel) return;
-        const mountAfter = panel.querySelector('form') || panel.querySelector('.filters') || panel.querySelector('h1');
-        const box = document.createElement('section');
-        box.innerHTML = `<div class="dv-gantt" role="region" aria-label="Timeline de cuadrillas">
-        <div class="head">
-          <h3>Línea de Tiempo (semana actual)</h3>
-          <div class="scale" id="dv-scale"></div>
-        </div>
-        <div class="body" id="dv-rows"></div>
-      </div>`;
-        (mountAfter?.parentNode || panel).insertBefore(box, mountAfter?.nextSibling || panel.firstChild);
+      (mountAfter?.parentNode || panel).insertBefore(box, mountAfter?.nextSibling || panel.firstChild);
 
-        const start = startOfWeek(new Date());
-        const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-        const scale = $('#dv-scale', box);
-        days.forEach(d => {
-          const el = document.createElement('div'); el.className = 'tick';
-          el.textContent = d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit' });
-          scale.appendChild(el);
-        });
+      const start = startOfWeek(new Date());
+      const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+      const scale = $('#dv-scale', box);
+      days.forEach(d => {
+        const el = document.createElement('div'); el.className = 'tick';
+        el.textContent = d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit' });
+        scale.appendChild(el);
+      });
 
-        const tasks = (window.CRONO_TASKS && Array.isArray(window.CRONO_TASKS)) ? window.CRONO_TASKS : [];
-        // Build lanes by cuadrilla (or 'General' if not provided)
-        const lanesMap = new Map();
-        tasks.forEach(t => {
-          const k = t.cuadrilla || 'General';
-          if (!lanesMap.has(k)) lanesMap.set(k, []);
-          lanesMap.get(k).push(t);
-        });
-        if (lanesMap.size === 0) {
-          ['Cuadrilla A', 'Cuadrilla B'].forEach(k => lanesMap.set(k, []));
-        }
-
-        const rows = $('#dv-rows', box);
-        [...lanesMap.keys()].forEach(lane => {
-          const r = document.createElement('div'); r.className = 'row';
-          const name = document.createElement('div'); name.className = 'lane'; name.textContent = lane;
-          const track = document.createElement('div'); track.className = 'track';
-          r.append(name, track); rows.appendChild(r);
-
-          const laneTasks = lanesMap.get(lane) || [];
-          laneTasks.forEach(t => {
-            const task = document.createElement('div'); task.className = 'task';
-            task.dataset.severity = t.severity || '';
-            task.textContent = t.tienda ? `${t.tienda} · ${t.descripcion || ''}` : (t.descripcion || 'Tarea');
-            const x = Math.max(0, daysBetween(start, parseDate(t.inicio)) * (track.clientWidth / 7));
-            const w = Math.max(24, Math.max(1, daysBetween(parseDate(t.inicio), parseDate(t.fin)) + 1) * (track.clientWidth / 7) - 6);
-            task.style.left = x + 'px';
-            task.style.width = w + 'px';
-            track.appendChild(task);
-          });
-        });
-
-        function parseDate(s) {
-          if (s instanceof Date) return s;
-          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return new Date(+y, +m - 1, +d); }
-          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) { const [d, m, y] = s.split('/'); return new Date(+y, +m - 1, +d); }
-          const dt = new Date(s); return isNaN(dt) ? new Date() : dt;
-        }
-        function startOfWeek(d) { const c = new Date(d); const day = (c.getDay() + 6) % 7; c.setDate(c.getDate() - day); c.setHours(0, 0, 0, 0); return c; }
-        function addDays(d, n) { const x = new Date(d); x.setDate(d.getDate() + n); return x; }
-        function daysBetween(a, b) { return Math.round((+startOfDay(b) - +startOfDay(a)) / 86400000); }
-        function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+      const tasks = (window.CRONO_TASKS && Array.isArray(window.CRONO_TASKS)) ? window.CRONO_TASKS : [];
+      // Build lanes by cuadrilla (or 'General' if not provided)
+      const lanesMap = new Map();
+      tasks.forEach(t => {
+        const k = t.cuadrilla || 'General';
+        if (!lanesMap.has(k)) lanesMap.set(k, []);
+        lanesMap.get(k).push(t);
+      });
+      if (lanesMap.size === 0) {
+        ['Cuadrilla A', 'Cuadrilla B'].forEach(k => lanesMap.set(k, []));
       }
+
+      const rows = $('#dv-rows', box);
+      [...lanesMap.keys()].forEach(lane => {
+        const r = document.createElement('div'); r.className = 'row';
+        const name = document.createElement('div'); name.className = 'lane'; name.textContent = lane;
+        const track = document.createElement('div'); track.className = 'track';
+        r.append(name, track); rows.appendChild(r);
+
+        const laneTasks = lanesMap.get(lane) || [];
+        laneTasks.forEach(t => {
+          const task = document.createElement('div'); task.className = 'task';
+          task.dataset.severity = t.severity || '';
+          task.textContent = t.tienda ? `${t.tienda} · ${t.descripcion || ''}` : (t.descripcion || 'Tarea');
+          const x = Math.max(0, daysBetween(start, parseDate(t.inicio)) * (track.clientWidth / 7));
+          const w = Math.max(24, Math.max(1, daysBetween(parseDate(t.inicio), parseDate(t.fin)) + 1) * (track.clientWidth / 7) - 6);
+          task.style.left = x + 'px';
+          task.style.width = w + 'px';
+          track.appendChild(task);
+        });
+      });
+
+      function parseDate(s) {
+        if (s instanceof Date) return s;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return new Date(+y, +m - 1, +d); }
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) { const [d, m, y] = s.split('/'); return new Date(+y, +m - 1, +d); }
+        const dt = new Date(s); return isNaN(dt) ? new Date() : dt;
+      }
+      function startOfWeek(d) { const c = new Date(d); const day = (c.getDay() + 6) % 7; c.setDate(c.getDate() - day); c.setHours(0, 0, 0, 0); return c; }
+      function addDays(d, n) { const x = new Date(d); x.setDate(d.getDate() + n); return x; }
+      function daysBetween(a, b) { return Math.round((+startOfDay(b) - +startOfDay(a)) / 86400000); }
+      function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+    }
 
       /* ---------------- Focus Path (Organigramas) ---------------- */
       function mountFocusPath() {
-        const panel = document.getElementById('panel-organigrama-vf');
-        if (!panel) return;
-        const wrap = document.createElement('div');
-        wrap.className = 'dv-org-search';
-        wrap.innerHTML = `<input type="search" placeholder="Buscar persona (Focus Path)..." aria-label="Buscar persona">
+      const panel = document.getElementById('panel-organigrama-vf');
+      if (!panel) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'dv-org-search';
+      wrap.innerHTML = `<input type="search" placeholder="Buscar persona (Focus Path)..." aria-label="Buscar persona">
       <div class="dv-org-tools">
         <button type="button" class="dv-btn" id="dv-focus-clear">Limpiar</button>
       </div>`;
-        panel.insertBefore(wrap, panel.firstElementChild?.nextSibling || panel.firstChild);
+      panel.insertBefore(wrap, panel.firstElementChild?.nextSibling || panel.firstChild);
 
-        const input = wrap.querySelector('input');
-        const btnClear = wrap.querySelector('#dv-focus-clear');
-        btnClear.addEventListener('click', () => clearFocus(panel));
+      const input = wrap.querySelector('input');
+      const btnClear = wrap.querySelector('#dv-focus-clear');
+      btnClear.addEventListener('click', () => clearFocus(panel));
 
-        input.addEventListener('keydown', e => {
-          if (e.key === 'Enter') {
-            const q = input.value.trim().toLowerCase();
-            focusQuery(panel, q);
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          const q = input.value.trim().toLowerCase();
+          focusQuery(panel, q);
+        }
+      });
+    }
+
+    function focusQuery(panel, q) {
+      clearFocus(panel);
+      if (!q) { return; }
+      const nodes = findOrgNodes(panel);
+      const matches = nodes.filter(n => n.textContent.trim().toLowerCase().includes(q));
+      if (matches.length === 0) { return; }
+      nodes.forEach(n => n.classList.add('org-dim'));
+      matches.forEach(n => {
+        n.classList.remove('org-dim'); n.classList.add('org-focus');
+        let p = n.parentElement;
+        const limit = panel;
+        let safety = 0;
+        while (p && p !== limit && safety++ < 50) {
+          if (p.classList && /org|node|card/i.test(p.className)) {
+            p.classList.remove('org-dim'); p.classList.add('org-focus');
           }
-        });
-      }
+          p = p.parentElement;
+        }
+        if (matches[0] === n) { n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      });
+    }
 
-      function focusQuery(panel, q) {
-        clearFocus(panel);
-        if (!q) { return; }
-        const nodes = findOrgNodes(panel);
-        const matches = nodes.filter(n => n.textContent.trim().toLowerCase().includes(q));
-        if (matches.length === 0) { return; }
-        nodes.forEach(n => n.classList.add('org-dim'));
-        matches.forEach(n => {
-          n.classList.remove('org-dim'); n.classList.add('org-focus');
-          let p = n.parentElement;
-          const limit = panel;
-          let safety = 0;
-          while (p && p !== limit && safety++ < 50) {
-            if (p.classList && /org|node|card/i.test(p.className)) {
-              p.classList.remove('org-dim'); p.classList.add('org-focus');
-            }
-            p = p.parentElement;
-          }
-          if (matches[0] === n) { n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-        });
-      }
+    function clearFocus(panel) {
+      const els = panel.querySelectorAll('.org-dim, .org-focus');
+      els.forEach(el => { el.classList.remove('org-dim'); el.classList.remove('org-focus'); });
+    }
 
-      function clearFocus(panel) {
-        const els = panel.querySelectorAll('.org-dim, .org-focus');
-        els.forEach(el => { el.classList.remove('org-dim'); el.classList.remove('org-focus'); });
-      }
-
-      function findOrgNodes(panel) {
-        let nodes = panel.querySelectorAll('[data-role="org-node"]');
-        if (nodes.length) return Array.from(nodes);
-        nodes = panel.querySelectorAll('.org-node, .orgcard, .org-card, .card, .node');
-        if (nodes.length) return Array.from(nodes);
-        const canvas = panel.querySelector('#org-canvas, #organigrama-canvas') || panel;
-        nodes = Array.from(canvas.querySelectorAll('*')).filter(el => el.children.length === 0 && /\S/.test(el.textContent));
-        return nodes;
-      }
-    })();
+    function findOrgNodes(panel) {
+      let nodes = panel.querySelectorAll('[data-role="org-node"]');
+      if (nodes.length) return Array.from(nodes);
+      nodes = panel.querySelectorAll('.org-node, .orgcard, .org-card, .card, .node');
+      if (nodes.length) return Array.from(nodes);
+      const canvas = panel.querySelector('#org-canvas, #organigrama-canvas') || panel;
+      nodes = Array.from(canvas.querySelectorAll('*')).filter(el => el.children.length === 0 && /\S/.test(el.textContent));
+      return nodes;
+    }
+    }) ();
   </script>
 
   <script>
