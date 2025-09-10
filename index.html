@@ -4936,73 +4936,7 @@
         try { mountFocusPath(); } catch (e) { /* silent */ }
       });
 
-      /* ---------------- Mini Gantt (Cronograma) ---------------- */
-      function mountMiniGantt() {
-        const panel = document.getElementById('panel-cronograma') || document.body;
-        if (!panel) return;
-        const mountAfter = panel.querySelector('form') || panel.querySelector('.filters') || panel.querySelector('h1');
-        const box = document.createElement('section');
-        box.innerHTML = `<div class="dv-gantt" role="region" aria-label="Timeline de cuadrillas">
-        <div class="head">
-          <h3>Línea de Tiempo (semana actual)</h3>
-          <div class="scale" id="dv-scale"></div>
-        </div>
-        <div class="body" id="dv-rows"></div>
-      </div>`;
-        (mountAfter?.parentNode || panel).insertBefore(box, mountAfter?.nextSibling || panel.firstChild);
 
-        const start = startOfWeek(new Date());
-        const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-        const scale = $('#dv-scale', box);
-        days.forEach(d => {
-          const el = document.createElement('div'); el.className = 'tick';
-          el.textContent = d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit' });
-          scale.appendChild(el);
-        });
-
-        const tasks = (window.CRONO_TASKS && Array.isArray(window.CRONO_TASKS)) ? window.CRONO_TASKS : [];
-        // Build lanes by cuadrilla (or 'General' if not provided)
-        const lanesMap = new Map();
-        tasks.forEach(t => {
-          const k = t.cuadrilla || 'General';
-          if (!lanesMap.has(k)) lanesMap.set(k, []);
-          lanesMap.get(k).push(t);
-        });
-        if (lanesMap.size === 0) {
-          ['Cuadrilla A', 'Cuadrilla B'].forEach(k => lanesMap.set(k, []));
-        }
-
-        const rows = $('#dv-rows', box);
-        [...lanesMap.keys()].forEach(lane => {
-          const r = document.createElement('div'); r.className = 'row';
-          const name = document.createElement('div'); name.className = 'lane'; name.textContent = lane;
-          const track = document.createElement('div'); track.className = 'track';
-          r.append(name, track); rows.appendChild(r);
-
-          const laneTasks = lanesMap.get(lane) || [];
-          laneTasks.forEach(t => {
-            const task = document.createElement('div'); task.className = 'task';
-            task.dataset.severity = t.severity || '';
-            task.textContent = t.tienda ? `${t.tienda} · ${t.descripcion || ''}` : (t.descripcion || 'Tarea');
-            const x = Math.max(0, daysBetween(start, parseDate(t.inicio)) * (track.clientWidth / 7));
-            const w = Math.max(24, Math.max(1, daysBetween(parseDate(t.inicio), parseDate(t.fin)) + 1) * (track.clientWidth / 7) - 6);
-            task.style.left = x + 'px';
-            task.style.width = w + 'px';
-            track.appendChild(task);
-          });
-        });
-
-        function parseDate(s) {
-          if (s instanceof Date) return s;
-          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return new Date(+y, +m - 1, +d); }
-          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) { const [d, m, y] = s.split('/'); return new Date(+y, +m - 1, +d); }
-          const dt = new Date(s); return isNaN(dt) ? new Date() : dt;
-        }
-        function startOfWeek(d) { const c = new Date(d); const day = (c.getDay() + 6) % 7; c.setDate(c.getDate() - day); c.setHours(0, 0, 0, 0); return c; }
-        function addDays(d, n) { const x = new Date(d); x.setDate(d.getDate() + n); return x; }
-        function daysBetween(a, b) { return Math.round((+startOfDay(b) - +startOfDay(a)) / 86400000); }
-        function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
-      }
 
       /* ---------------- Focus Path (Organigramas) ---------------- */
       function mountFocusPath() {
