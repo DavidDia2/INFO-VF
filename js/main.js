@@ -2188,4 +2188,5 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       window.addEventListener('load', update);
     }
-  })();
+  })()
+}
