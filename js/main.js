@@ -1457,689 +1457,735 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })();
 
-  <div>
-    <script>
+  /* === Pro Pack v3 JS: Organigrama – Colapsar Niveles + Minimap =============== */
+  (function () {
+    const $ = (s, c = document) => c.querySelector(s);
+    const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
 
-      /* === Pro Pack v3 JS: Organigrama – Colapsar Niveles + Minimap =============== */
-      (function () {
-        const $ = (s, c = document) => c.querySelector(s);
-        const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+    document.addEventListener('DOMContentLoaded', () => {
+      const panel = document.getElementById('panel-organigrama-vf');
+      if (!panel) return;
+      mountOps(panel);
+      mountMinimap(panel);
+    });
 
-        document.addEventListener('DOMContentLoaded', () => {
-          const panel = document.getElementById('panel-organigrama-vf');
-          if (!panel) return;
-          mountOps(panel);
-          mountMinimap(panel);
-        });
-
-        function mountOps(panel) {
-          // Reusar la barra de búsqueda si existe; si no, crear contenedor
-          let anchor = panel.querySelector('.dv-org-search');
-          if (!anchor) {
-            anchor = document.createElement('div');
-            anchor.className = 'dv-org-search';
-            panel.insertBefore(anchor, panel.firstChild);
-          }
-          const ops = document.createElement('div');
-          ops.className = 'dv-org-ops';
-          ops.innerHTML = `<div class="dv-seg" role="group" aria-label="Colapsar niveles">
-          <button type="button" data-lvl="1" aria-pressed="false" title="Mostrar hasta nivel 1">1</button>
-          <button type="button" data-lvl="2" aria-pressed="true" title="Mostrar hasta nivel 2">2</button>
-          <button type="button" data-lvl="3" aria-pressed="false" title="Mostrar hasta nivel 3">3</button>
-        </div>`;
-          anchor.parentNode.insertBefore(ops, anchor.nextSibling);
-
-          ops.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-lvl]'); if (!btn) return;
-            ops.querySelectorAll('button[data-lvl]').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
-            const max = parseInt(btn.dataset.lvl, 10) || 2;
-            collapseToLevel(panel, max);
-          });
-
-          // Estado inicial (nivel 2)
-          collapseToLevel(panel, 2);
-        }
-
-        function collapseToLevel(panel, maxLevel) {
-          const root = findOrgRoot(panel);
-          if (!root) return;
-          // Calcular profundidad por nodo: usar .org-node o tarjetas con data-role
-          const nodes = Array.from(root.querySelectorAll('.org-node, [data-role="org-node"], .orgcard, .org-card'));
-          nodes.forEach(n => {
-            const depth = computeDepth(n, root);
-            const wrap = n.closest('.org-node-wrapper, li, .node, .card') || n;
-            if (depth > maxLevel) { wrap.classList.add('org-hidden'); }
-            else { wrap.classList.remove('org-hidden'); }
-          });
-        }
-
-        function computeDepth(el, limit) {
-          let d = 1, p = el.parentElement;
-          while (p && p !== limit) {
-            if (p.classList && (p.classList.contains('org-children') || p.tagName.toLowerCase() === 'li')) d++;
-            p = p.parentElement;
-          }
-          return d;
-        }
-
-        function findOrgRoot(panel) {
-          return panel.querySelector('.org-chart, #organigrama-canvas, #org-canvas') || panel.querySelector('.organigrama-vf') || panel;
-        }
-
-        /* ------------------------ Minimap ------------------------ */
-        function mountMinimap(panel) {
-          const root = findOrgRoot(panel);
-          if (!root) return;
-          // hallar el scroller más cercano (el padre que hace scroll)
-          let scroller = root;
-          let p = root.parentElement;
-          while (p && p !== panel) {
-            const overflowX = getComputedStyle(p).overflowX;
-            const overflowY = getComputedStyle(p).overflowY;
-            if ((overflowX === 'auto' || overflowX === 'scroll') || (overflowY === 'auto' || overflowY === 'scroll')) { scroller = p; break; }
-            p = p.parentElement;
-          }
-
-          const mm = document.createElement('aside');
-          mm.className = 'dv-minimap';
-          mm.innerHTML = `<div class="title">Minimapa</div><div class="wrap"><canvas></canvas><span class="hint">arrastrá</span></div>`;
-          // Colocar al final del panel (sticky al fondo de la vista)
-          panel.appendChild(mm);
-
-          const canvas = mm.querySelector('canvas');
-          const ctx = canvas.getContext('2d');
-
-          function draw() {
-            const cw = canvas.clientWidth, ch = canvas.clientHeight;
-            canvas.width = cw; canvas.height = ch;
-            // Tamaño total del contenido
-            const contentW = root.scrollWidth;
-            const contentH = root.scrollHeight;
-            if (!contentW || !contentH) return;
-            // Viewport actual
-            const viewW = scroller.clientWidth;
-            const viewH = scroller.clientHeight;
-            const sx = scroller.scrollLeft;
-            const sy = scroller.scrollTop;
-
-            // Limpio
-            ctx.clearRect(0, 0, cw, ch);
-            // Fondo
-            ctx.fillStyle = '#f9fafb';
-            ctx.fillRect(0, 0, cw, ch);
-            // Escala
-            const scale = Math.min(cw / contentW, ch / contentH);
-            const padX = (cw - contentW * scale) / 2;
-            const padY = (ch - contentH * scale) / 2;
-
-            // Contorno del contenido
-            ctx.strokeStyle = 'rgba(0,0,0,.15)';
-            ctx.strokeRect(padX, padY, contentW * scale, contentH * scale);
-
-            // Viewport
-            ctx.fillStyle = 'rgba(225,29,72,.12)';
-            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--dia-red') || '#e11d48';
-            ctx.lineWidth = 2;
-            ctx.fillRect(padX + sx * scale, padY + sy * scale, viewW * scale, viewH * scale);
-            ctx.strokeRect(padX + sx * scale, padY + sy * scale, viewW * scale, viewH * scale);
-          }
-
-          // Sync en scroll/resize
-          scroller.addEventListener('scroll', draw, { passive: true });
-          window.addEventListener('resize', draw);
-          const ro = new ResizeObserver(draw);
-          ro.observe(root);
-          ro.observe(scroller);
-
-          // Navegación por arrastre en el minimapa
-          let dragging = false;
-          mm.addEventListener('mousedown', (e) => { dragging = true; moveToEvent(e); });
-          window.addEventListener('mousemove', (e) => { if (dragging) moveToEvent(e); });
-          window.addEventListener('mouseup', () => dragging = false);
-
-          function moveToEvent(e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const contentW = root.scrollWidth;
-            const contentH = root.scrollHeight;
-            const viewW = scroller.clientWidth;
-            const viewH = scroller.clientHeight;
-
-            const cw = canvas.clientWidth, ch = canvas.clientHeight;
-            const scale = Math.min(cw / contentW, ch / contentH);
-            const padX = (cw - contentW * scale) / 2;
-            const padY = (ch - contentH * scale) / 2;
-
-            // Centro del viewport en el punto clicado
-            const targetX = Math.max(0, (x - padX) / scale - viewW / 2);
-            const targetY = Math.max(0, (y - padY) / scale - viewH / 2);
-            scroller.scrollLeft = Math.min(targetX, contentW - viewW);
-            scroller.scrollTop = Math.min(targetY, contentH - viewH);
-            draw();
-          }
-
-          // Primer pintado
-          setTimeout(draw, 60);
-        }
-      })();
-
-    </script>
-
-    <script>
-      /* dv-auto-turno */
-      (function () {
-        const mapIdx = { lunes: 0, martes: 1, miércoles: 2, miercoles: 2, jueves: 3, viernes: 4, sábado: 5, sabado: 5, domingo: 6 };
-        const fmt = new Intl.DateTimeFormat('es-AR', { weekday: 'long' });
-        const weekday = fmt.format(new Date()).toLowerCase();
-        const dayIdx = mapIdx[weekday] ?? 0;
-
-        function normalizeText(s) { return (s || "").replace(/\s+/g, " ").trim().toUpperCase(); }
-
-        function parseHoras(txt) {
-          // Busca "hh a hh" con "hs"
-          const m = txt.match(/(\d{1,2})\s*a\s*(\d{1,2})\s*0?hs/i);
-          if (!m) return null;
-          let ini = parseInt(m[1], 10), fin = parseInt(m[2], 10);
-          if (fin === 0) fin = 24; // 00hs = 24:00 del mismo día
-          return [ini * 60, fin * 60];
-        }
-
-        function estaEnTurno(rango, minutosAhora) {
-          if (!rango) return false;
-          let [ini, fin] = rango;
-          if (fin > ini) return (minutosAhora >= ini && minutosAhora < fin);
-          // solo cuando realmente cruza medianoche (ej: 22 a 06)
-          return (minutosAhora >= ini) || (minutosAhora < fin);
-        }
-
-        const now = new Date();
-        const minutosAhora = now.getHours() * 60 + now.getMinutes();
-
-        document.querySelectorAll('[id^="agent-card-"]').forEach(card => {
-          // 1) Eliminar cualquier chip textual existente "EN TURNO" (deja limpio)
-          card.querySelectorAll('span,div,b,strong,em,i').forEach(el => {
-            if (normalizeText(el.textContent) === 'EN TURNO') {
-              el.remove();
-            }
-          });
-
-          // 2) Detectar celdas de días (Lu..Do) - primera grilla de 7 celdas
-          const grid = card.querySelector('.grid');
-          if (!grid) return;
-          const cells = Array.from(grid.children).slice(0, 7);
-          const cell = cells[dayIdx];
-          if (!cell) return;
-
-          // 3) Si hoy es Libre/Franco -> no está en turno
-          if (/libre|franco/i.test(cell.textContent)) return;
-
-          // 4) Parsear rango horario y decidir
-          const rango = parseHoras(cell.textContent);
-          if (!rango) return;
-
-          if (estaEnTurno(rango, minutosAhora)) {
-            // 5) Pegar un badge único
-            const host = card.querySelector('h3, h4, .flex.items-center') || card;
-            const badge = document.createElement('span');
-            badge.setAttribute('data-turno-badge', '1');
-            badge.className = 'ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700';
-            badge.textContent = 'EN TURNO';
-            host.appendChild(badge);
-          }
-        });
-      })();
-    </script>
-  </div>
-
-
-
-
-
-  <script id="remove-focus-ui-patch">
-    /* Remove Focus Path / Buscar persona UI + Limpiar + botones 1/2/3 */
-    (function () {
-      function removeFocusUI(root) {
-        root = root || document;
-
-        // 1) Inputs con placeholder "Focus Path" o "Buscar persona"
-        const inputs = root.querySelectorAll(
-          'input[placeholder*="Focus Path" i], input[placeholder*="Buscar persona" i]'
-        );
-
-        inputs.forEach((inp) => {
-          // 2) Buscar un contenedor razonable para eliminar todo el bloque
-          const container =
-            inp.closest('.dv-org-search, .org-toolbar, .dv-org-ops, .focus-toolbar, .org-focus-toolbar, .toolbar, .relative, .search, .search-bar, form, div') ||
-            inp.parentElement;
-
-          if (container && container.parentElement) {
-            container.parentElement.removeChild(container);
-          } else if (container) {
-            container.remove();
-          } else {
-            inp.remove();
-          }
-        });
-
-        // 3) Botón "Limpiar" cercano
-        (root.querySelectorAll('button, a') || []).forEach((el) => {
-          const txt = (el.textContent || '').trim().toLowerCase();
-          if (txt === 'limpiar') {
-            const holder = el.closest('.dv-org-search, .org-toolbar, .dv-org-ops, .focus-toolbar, .org-focus-toolbar, .toolbar, [role="search"], form');
-            if (holder && holder.parentElement) holder.parentElement.removeChild(holder);
-            else el.remove();
-          }
-        });
-
-        // 4) Grupo de botones "1/2/3" adyacente
-        (root.querySelectorAll('button, .btn, a') || []).forEach((btn) => {
-          const txt = (btn.textContent || '').trim();
-          if (/^[123]$/.test(txt)) {
-            const group = btn.parentElement;
-            if (group) {
-              const labels = Array.from(group.children).map((c) => (c.textContent || '').trim());
-              const only123 = labels.length > 0 && labels.every((t) => /^[123]$/.test(t));
-              if (only123) {
-                if (group.parentElement) group.parentElement.removeChild(group);
-                else group.remove();
-              }
-            }
-          }
-        });
+    function mountOps(panel) {
+      let anchor = panel.querySelector('.dv-org-search');
+      if (!anchor) {
+        anchor = document.createElement('div');
+        anchor.className = 'dv-org-search';
+        panel.insertBefore(anchor, panel.firstChild);
       }
+      const ops = document.createElement('div');
+      ops.className = 'dv-org-ops';
+      ops.innerHTML = `<div class="dv-seg" role="group" aria-label="Colapsar niveles">
+      <button type="button" data-lvl="1" aria-pressed="false" title="Mostrar hasta nivel 1">1</button>
+      <button type="button" data-lvl="2" aria-pressed="true" title="Mostrar hasta nivel 2">2</button>
+      <button type="button" data-lvl="3" aria-pressed="false" title="Mostrar hasta nivel 3">3</button>
+    </div>`;
+      anchor.parentNode.insertBefore(ops, anchor.nextSibling);
 
-      function run() {
-        removeFocusUI(document);
-      }
-
-      if (document.readyState !== 'loading') run();
-      else document.addEventListener('DOMContentLoaded', run);
-
-      // Observa reinyecciones y vuelve a eliminar
-      try {
-        const mo = new MutationObserver(() => run());
-        mo.observe(document.body, { childList: true, subtree: true });
-      } catch (e) {
-        // noop
-      }
-    })();
-  </script>
-
-
-
-
-
-  <script id="ssgg-visual-v13">
-    (function () {
-      function $(sel, root) { return (root || document).querySelector(sel); }
-      function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
-      function findCardByName(container, name) {
-        const target = name.toLowerCase();
-        const cards = $all('.card', container);
-        for (const c of cards) {
-          const nm = (c.querySelector('.card-name') || {}).textContent || c.textContent || '';
-          const t = nm.trim().toLowerCase();
-          if (t === target || t.includes(target)) return c;
-        }
-        return null;
-      }
-      function ensureLayer(container) {
-        let layer = container.querySelector('.ssgg-aux-layer');
-        if (!layer) {
-          layer = document.createElement('div');
-          layer.className = 'ssgg-aux-layer';
-          layer.innerHTML = '<svg></svg>';
-          container.appendChild(layer);
-        }
-        const svg = layer.querySelector('svg');
-        while (svg.firstChild) svg.removeChild(svg.firstChild);
-        return svg;
-      }
-      function relRect(container, el) {
-        const cr = container.getBoundingClientRect();
-        const r = el.getBoundingClientRect(); // respects transforms
-        return { left: r.left - cr.left, top: r.top - cr.top, width: r.width, height: r.height, right: r.right - cr.left, bottom: r.bottom - cr.top };
-      }
-      function drawH(svg, x1, x2, y) {
-        const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        p.setAttribute('d', `M ${x1} ${y} H ${x2}`);
-        p.setAttribute('class', 'ssgg-aux-path');
-        svg.appendChild(p);
-      }
-      function drawV(svg, x, y1, y2) {
-        const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        p.setAttribute('d', `M ${x} ${y1} V ${y2}`);
-        p.setAttribute('class', 'ssgg-aux-path');
-        svg.appendChild(p);
-      }
-      function applyShift(card, dx, dy) {
-        if (!card) return;
-        card.classList.add('ssgg-shift');
-        if (dx != null) card.style.setProperty('--shift-x', (dx | 0) + 'px');
-        if (dy != null) card.style.setProperty('--shift-y', (dy | 0) + 'px');
-      }
-      function clearShift(card) {
-        if (!card) return;
-        card.classList.remove('ssgg-shift');
-        card.style.removeProperty('--shift-x');
-        card.style.removeProperty('--shift-y');
-      }
-      function alignYTo(target, anchor) {
-        if (!target || !anchor) return;
-        const dy = Math.round(anchor.getBoundingClientRect().top - target.getBoundingClientRect().top);
-        if (dy !== 0) applyShift(target, null, dy);
-      }
-      function centerJuan(container, juan, patricio) {
-        if (!juan || !patricio) return;
-        const ul = juan.closest('li') && juan.closest('li').parentElement;
-        if (!ul) return;
-        const ulRect = ul.getBoundingClientRect();
-        const pRect = patricio.getBoundingClientRect();
-        const jRect = juan.getBoundingClientRect();
-        const targetCx = (ulRect.left + (pRect.left + pRect.width / 2)) / 2;
-        const juanCx = jRect.left + jRect.width / 2;
-        const dx = Math.round(targetCx - juanCx);
-        if (Math.abs(dx) > 1) applyShift(juan, dx, null);
-      }
-      function ensureJonathanNextToNatalia(container, nat) {
-        if (!nat) return null;
-        const natLI = nat.closest('li'); const parentUL = natLI && natLI.parentElement;
-        if (!parentUL) return null;
-        let jon = findCardByName(container, 'Jonathan');
-        if (jon) {
-          const jonLI = jon.closest('li');
-          if (jonLI && natLI && natLI.nextSibling !== jonLI) {
-            parentUL.insertBefore(jonLI, natLI.nextSibling);
-          }
-          return jon;
-        }
-        const li = document.createElement('li');
-        li.innerHTML = '<div class="card"><div class="card-name">Jonathan Ferro</div><div class="card-role">Analista de procesos y Analista mantenimiento</div></div>';
-        parentUL.insertBefore(li, natLI.nextSibling);
-        return li.querySelector('.card');
-      }
-
-      let rafId = 0;
-      function queueRender() { cancelAnimationFrame(rafId); rafId = requestAnimationFrame(render); }
-
-      function render() {
-        const cont = $('#ssgg-chart-container'); if (!cont) return;
-        const svg = ensureLayer(cont);
-
-        const roberta = findCardByName(cont, 'Roberta Di Pace') || findCardByName(cont, 'Responsable');
-        const patricio = findCardByName(cont, 'Patricio Varela');
-        const juan = findCardByName(cont, 'Juan Basini');
-        const david = findCardByName(cont, 'David Diaz');
-        const natalia = findCardByName(cont, 'Natalia Gonzalez') || findCardByName(cont, 'Natalia');
-        const jon = ensureJonathanNextToNatalia(cont, natalia) || findCardByName(cont, 'Jonathan');
-
-        // Reset previous visual offsets to compute fresh
-        [natalia, jon, juan].forEach(clearShift);
-
-        // Visual alignments via transforms
-        if (david) {
-          if (natalia) alignYTo(natalia, david);
-          if (jon) alignYTo(jon, david);
-        }
-        if (juan && patricio) centerJuan(cont, juan, patricio);
-
-        // Draw trunk from Roberta to Natalia/Jonathan
-        if (!roberta) return;
-        const rr = relRect(cont, roberta);
-        const startY = rr.top + rr.height / 2;
-        const startX = rr.right;
-
-        const targets = [];
-        if (natalia) { const nr = relRect(cont, natalia); targets.push({ x: nr.left + nr.width / 2, y: nr.top }); }
-        if (jon) { const jr = relRect(cont, jon); targets.push({ x: jr.left + jr.width / 2, y: jr.top }); }
-        if (targets.length) {
-          const endX = Math.max(...targets.map(t => t.x));
-          drawH(svg, startX, endX, startY);
-          targets.forEach(t => drawV(svg, t.x, startY, t.y));
-        }
-      }
-
-      function addScrollListeners(el) {
-        if (!el) return;
-        el.addEventListener('scroll', queueRender, { passive: true });
-        // attach to ancestors that can scroll
-        let p = el.parentElement;
-        while (p && p !== document.body) {
-          p.addEventListener('scroll', queueRender, { passive: true });
-          p = p.parentElement;
-        }
-      }
-
-      function ready(fn) { if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-      ready(function () {
-        const cont = document.getElementById('ssgg-chart-container');
-        if (!cont) return;
-        const mo = new MutationObserver(() => queueRender());
-        mo.observe(cont, { childList: true, subtree: true });
-        window.addEventListener('resize', queueRender, { passive: true });
-        window.addEventListener('scroll', queueRender, { passive: true });
-        document.addEventListener('scroll', queueRender, { passive: true });
-        addScrollListeners(cont);
-
-        setTimeout(queueRender, 450);
+      ops.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-lvl]');
+        if (!btn) return;
+        ops.querySelectorAll('button[data-lvl]').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+        const max = parseInt(btn.dataset.lvl, 10) || 2;
+        collapseToLevel(panel, max);
       });
-    })();
-  </script>
 
-
-  <!--center - juan - patch: keeps native rails fixed and only shifts the card visually-- >
-
-
-
-  < !--improved center - juan patch: bias towards Patricio and safe redraw for overlays-- >
-
-
-
-  <script id="ssgg-center-juan-patch">
-    (function () {
-      const GAP = 20;          // px: separación deseada entre el borde derecho de Juan y el borde izquierdo de Patricio
-      const MAX_RETRIES = 60;
-      let tries = 0;
-
-      function $(s, r) { return (r || document).querySelector(s); }
-      function $all(s, r) { return Array.from((r || document).querySelectorAll(s)); }
-
-      function findCardByName(name) {
-        const needle = (name || '').trim().toLowerCase();
-        const nodes = $all('.card, [data-node], .node, .org-node');
-        for (const el of nodes) {
-          const txt = (el.textContent || '').trim().toLowerCase();
-          if (txt.includes(needle)) return el;
-        }
-        return null;
-      }
-      function clearShift(el) {
-        if (!el) return;
-        el.classList.remove('ssgg-shift');
-        el.style.removeProperty('--shift-x');
-        el.style.removeProperty('--shift-y');
-      }
-      function shift(el, dx) {
-        if (!el) return;
-        el.classList.add('ssgg-shift');
-        el.style.setProperty('--shift-x', (Math.round(dx) || 0) + 'px');
-      }
-      function redrawConnectors() {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            try {
-              const cont = $('#ssgg-chart-container') || document;
-              cont.dispatchEvent(new Event('ssgg-redraw', { bubbles: true }));
-            } catch (e) { }
-            try {
-              if (window.SSGG && typeof window.SSGG.redraw === 'function') window.SSGG.redraw();
-            } catch (e) { }
-          });
-        });
-      }
-      function computeAndApply() {
-        const juan = findCardByName('juan basini');
-        const patri = findCardByName('patricio varela');
-        if (!juan || !patri) {
-          if (tries++ < MAX_RETRIES) return void setTimeout(computeAndApply, 120);
-          return;
-        }
-        // limpiar desplazamiento previo para medir bien
-        clearShift(juan);
-
-        const jr = juan.getBoundingClientRect();
-        const pr = patri.getBoundingClientRect();
-
-        // Queremos que el borde derecho de Juan quede GAP px a la izquierda del borde izquierdo de Patricio
-        const targetRight = pr.left - GAP;
-        const dx = Math.round(targetRight - jr.right);
-
-        if (Math.abs(dx) > 1) shift(juan, dx);
-        redrawConnectors();
-      }
-      function render() {
-        requestAnimationFrame(computeAndApply);
-      }
-      if (document.readyState !== 'loading') render();
-      else document.addEventListener('DOMContentLoaded', render);
-      window.addEventListener('resize', render);
-      window.addEventListener('orientationchange', render);
-    })();
-  </script>
-
-  <script id="davoo-normalize-criticality">
-    (function () {
-      const MAP = { "Critico": "Crítico", "critico": "crítico", "Critica": "Crítica", "critica": "crítica" };
-      function fixNode(node) {
-        const t = node.textContent;
-        if (!t) return;
-        const replaced = t.replace(/(Critico|critico|Critica|critica)/g, (m) => MAP[m] || m);
-        if (replaced !== t) node.textContent = replaced;
-      }
-      function walk(root) {
-        try {
-          const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-          const nodes = [];
-          while (tw.nextNode()) nodes.push(tw.currentNode);
-          nodes.forEach(fixNode);
-        } catch (e) { }
-      }
-      function run() { walk(document.body); }
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", run);
-      } else { run(); }
-      try {
-        const mo = new MutationObserver((muts) => {
-          muts.forEach((m) => {
-            if (m.type === "childList") {
-              m.addedNodes && m.addedNodes.forEach((n) => walk(n));
-            } else if (m.type === "characterData") {
-              fixNode(m.target);
-            }
-          });
-        });
-        mo.observe(document.body, { childList: true, subtree: true, characterData: true });
-      } catch (e) { }
-    })();
-  </script>
-  <script id="davoo-v6-js">
-    /* DAVOO V6r1: sin botón flotante de densidad ni atajo Alt+D; mantiene Tabs ARIA */
-    (function () {
-      // Roving tabindex para tabs con role="tablist"
-      function enhanceTabs() {
-        document.querySelectorAll('[role="tablist"]').forEach(tablist => {
-          const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
-          if (!tabs.length) return;
-          tabs.forEach(t => t.tabIndex = t.getAttribute('aria-selected') === 'true' ? 0 : -1);
-          tablist.addEventListener('keydown', (ev) => {
-            const current = document.activeElement;
-            if (!tabs.includes(current)) return;
-            let i = tabs.indexOf(current);
-            if (ev.key === 'ArrowRight') { i = (i + 1) % tabs.length; ev.preventDefault(); tabs[i].focus(); }
-            else if (ev.key === 'ArrowLeft') { i = (i - 1 + tabs.length) % tabs.length; ev.preventDefault(); tabs[i].focus(); }
-            else if (ev.key === 'Home') { i = 0; ev.preventDefault(); tabs[i].focus(); }
-            else if (ev.key === 'End') { i = tabs.length - 1; ev.preventDefault(); tabs[i].focus(); }
-          });
-          tabs.forEach(t => {
-            t.addEventListener('click', () => {
-              tabs.forEach(x => { x.setAttribute('aria-selected', 'false'); x.tabIndex = -1; });
-              t.setAttribute('aria-selected', 'true'); t.tabIndex = 0; t.focus();
-            });
-          });
-        });
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-          try { enhanceTabs(); } catch (e) { }
-        });
-      } else {
-        try { enhanceTabs(); } catch (e) { }
-      }
-    })();
-  </script>
-
-  <script id="davoo-hotfix-filters">
-    (function () {
-      function getValues(data, key) {
-        try {
-          return data.map(it => {
-            if (!it) return null;
-            if (it[key] !== undefined) return it[key];
-            const low = key.toLowerCase();
-            for (const k in it) { if (k && k.toLowerCase() === low) return it[k]; }
-            return null;
-          }).filter(Boolean);
-        } catch (e) { return []; }
-      }
-      window.populateFilters = function (data) {
-        try {
-          const provinciaFilter = document.getElementById('provincia-filter');
-          const localidadFilter = document.getElementById('localidad-filter');
-          if (!provinciaFilter || !localidadFilter) return;
-          const provincias = Array.from(new Set(getValues(data, 'Provincia'))).sort();
-          const localidades = Array.from(new Set(getValues(data, 'Localidad'))).sort();
-          const opt = (v) => `<option value="${String(v).replace(/"/g, '&quot;')}">${v}</option>`;
-          provinciaFilter.innerHTML = '<option value="">Todas</option>' + provincias.map(opt).join('');
-          localidadFilter.innerHTML = '<option value="">Todas</option>' + localidades.map(opt).join('');
-        } catch (e) { console.error('populateFilters hotfix', e); }
-      };
-    })();
-  </script>
-
-
-  <style id="davoo-orgbar-fix">
-    #ssgg-chart-container .org-children::before {
-      left: var(--bar-left, 10%);
-      width: var(--bar-width, 80%);
+      collapseToLevel(panel, 2);
     }
-  </style>
-  <script id="davoo-orgbar-calc">
-    (function () {
-      function update() {
-        const cont = document.querySelector('#ssgg-chart-container .org-node-wrapper > .org-children');
-        if (!cont) return;
-        const kids = Array.from(cont.children).filter(el => el.classList && el.classList.contains('org-node-wrapper'));
-        if (kids.length < 2) return;
-        const rect = cont.getBoundingClientRect();
-        const c1 = kids[0].getBoundingClientRect().left + kids[0].getBoundingClientRect().width / 2 - rect.left;
-        const c2 = kids[kids.length - 1].getBoundingClientRect().left + kids[kids.length - 1].getBoundingClientRect().width / 2 - rect.left;
-        const a = Math.min(c1, c2), b = Math.max(c1, c2);
-        const left = (a / rect.width) * 100;
-        const width = ((b - a) / rect.width) * 100;
-        cont.style.setProperty('--bar-left', left + '%');
-        cont.style.setProperty('--bar-width', width + '%');
+
+    function collapseToLevel(panel, maxLevel) {
+      const root = findOrgRoot(panel);
+      if (!root) return;
+      const nodes = Array.from(root.querySelectorAll('.org-node, [data-role="org-node"], .orgcard, .org-card'));
+      nodes.forEach(n => {
+        const depth = computeDepth(n, root);
+        const wrap = n.closest('.org-node-wrapper, li, .node, .card') || n;
+        if (depth > maxLevel) {
+          wrap.classList.add('org-hidden');
+        } else {
+          wrap.classList.remove('org-hidden');
+        }
+      });
+    }
+
+    function computeDepth(el, limit) {
+      let d = 1,
+        p = el.parentElement;
+      while (p && p !== limit) {
+        if (p.classList && (p.classList.contains('org-children') || p.tagName.toLowerCase() === 'li')) d++;
+        p = p.parentElement;
       }
-      window.addEventListener('resize', update);
-      if ('ResizeObserver' in window) {
-        const ro = new ResizeObserver(() => update());
-        window.addEventListener('load', () => {
-          const cont = document.querySelector('#ssgg-chart-container .org-node-wrapper > .org-children');
-          if (cont) ro.observe(cont);
-          update();
+      return d;
+    }
+
+    function findOrgRoot(panel) {
+      return panel.querySelector('.org-chart, #organigrama-canvas, #org-canvas') || panel.querySelector('.organigrama-vf') || panel;
+    }
+
+    /* ------------------------ Minimap ------------------------ */
+    function mountMinimap(panel) {
+      const root = findOrgRoot(panel);
+      if (!root) return;
+      let scroller = root;
+      let p = root.parentElement;
+      while (p && p !== panel) {
+        const overflowX = getComputedStyle(p).overflowX;
+        const overflowY = getComputedStyle(p).overflowY;
+        if ((overflowX === 'auto' || overflowX === 'scroll') || (overflowY === 'auto' || overflowY === 'scroll')) {
+          scroller = p;
+          break;
+        }
+        p = p.parentElement;
+      }
+
+      const mm = document.createElement('aside');
+      mm.className = 'dv-minimap';
+      mm.innerHTML = `<div class="title">Minimapa</div><div class="wrap"><canvas></canvas><span class="hint">arrastrá</span></div>`;
+      panel.appendChild(mm);
+
+      const canvas = mm.querySelector('canvas');
+      const ctx = canvas.getContext('2d');
+
+      function draw() {
+        const cw = canvas.clientWidth,
+          ch = canvas.clientHeight;
+        canvas.width = cw;
+        canvas.height = ch;
+        const contentW = root.scrollWidth;
+        const contentH = root.scrollHeight;
+        if (!contentW || !contentH) return;
+        const viewW = scroller.clientWidth;
+        const viewH = scroller.clientHeight;
+        const sx = scroller.scrollLeft;
+        const sy = scroller.scrollTop;
+
+        ctx.clearRect(0, 0, cw, ch);
+        ctx.fillStyle = '#f9fafb';
+        ctx.fillRect(0, 0, cw, ch);
+        const scale = Math.min(cw / contentW, ch / contentH);
+        const padX = (cw - contentW * scale) / 2;
+        const padY = (ch - contentH * scale) / 2;
+
+        ctx.strokeStyle = 'rgba(0,0,0,.15)';
+        ctx.strokeRect(padX, padY, contentW * scale, contentH * scale);
+
+        ctx.fillStyle = 'rgba(225,29,72,.12)';
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--dia-red') || '#e11d48';
+        ctx.lineWidth = 2;
+        ctx.fillRect(padX + sx * scale, padY + sy * scale, viewW * scale, viewH * scale);
+        ctx.strokeRect(padX + sx * scale, padY + sy * scale, viewW * scale, viewH * scale);
+      }
+
+      scroller.addEventListener('scroll', draw, { passive: true });
+      window.addEventListener('resize', draw);
+      const ro = new ResizeObserver(draw);
+      ro.observe(root);
+      ro.observe(scroller);
+
+      let dragging = false;
+      mm.addEventListener('mousedown', (e) => {
+        dragging = true;
+        moveToEvent(e);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (dragging) moveToEvent(e);
+      });
+      window.addEventListener('mouseup', () => dragging = false);
+
+      function moveToEvent(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const contentW = root.scrollWidth;
+        const contentH = root.scrollHeight;
+        const viewW = scroller.clientWidth;
+        const viewH = scroller.clientHeight;
+        const cw = canvas.clientWidth,
+          ch = canvas.clientHeight;
+        const scale = Math.min(cw / contentW, ch / contentH);
+        const padX = (cw - contentW * scale) / 2;
+        const padY = (ch - contentH * scale) / 2;
+        const targetX = Math.max(0, (x - padX) / scale - viewW / 2);
+        const targetY = Math.max(0, (y - padY) / scale - viewH / 2);
+        scroller.scrollLeft = Math.min(targetX, contentW - viewW);
+        scroller.scrollTop = Math.min(targetY, contentH - viewH);
+        draw();
+      }
+      setTimeout(draw, 60);
+    }
+  })();
+
+  /* dv-auto-turno */
+  (function () {
+    const mapIdx = { lunes: 0, martes: 1, miércoles: 2, miercoles: 2, jueves: 3, viernes: 4, sábado: 5, sabado: 5, domingo: 6 };
+    const fmt = new Intl.DateTimeFormat('es-AR', { weekday: 'long' });
+    const weekday = fmt.format(new Date()).toLowerCase();
+    const dayIdx = mapIdx[weekday] ?? 0;
+
+    function normalizeText(s) {
+      return (s || "").replace(/\s+/g, " ").trim().toUpperCase();
+    }
+
+    function parseHoras(txt) {
+      const m = txt.match(/(\d{1,2})\s*a\s*(\d{1,2})\s*0?hs/i);
+      if (!m) return null;
+      let ini = parseInt(m[1], 10),
+        fin = parseInt(m[2], 10);
+      if (fin === 0) fin = 24;
+      return [ini * 60, fin * 60];
+    }
+
+    function estaEnTurno(rango, minutosAhora) {
+      if (!rango) return false;
+      let [ini, fin] = rango;
+      if (fin > ini) return (minutosAhora >= ini && minutosAhora < fin);
+      return (minutosAhora >= ini) || (minutosAhora < fin);
+    }
+
+    const now = new Date();
+    const minutosAhora = now.getHours() * 60 + now.getMinutes();
+
+    document.querySelectorAll('[id^="agent-card-"]').forEach(card => {
+      card.querySelectorAll('span,div,b,strong,em,i').forEach(el => {
+        if (normalizeText(el.textContent) === 'EN TURNO') {
+          el.remove();
+        }
+      });
+
+      const grid = card.querySelector('.grid');
+      if (!grid) return;
+      const cells = Array.from(grid.children).slice(0, 7);
+      const cell = cells[dayIdx];
+      if (!cell) return;
+
+      if (/libre|franco/i.test(cell.textContent)) return;
+
+      const rango = parseHoras(cell.textContent);
+      if (!rango) return;
+
+      if (estaEnTurno(rango, minutosAhora)) {
+        const host = card.querySelector('h3, h4, .flex.items-center') || card;
+        const badge = document.createElement('span');
+        badge.setAttribute('data-turno-badge', '1');
+        badge.className = 'ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700';
+        badge.textContent = 'EN TURNO';
+        host.appendChild(badge);
+      }
+    });
+  })();
+
+  /* Remove Focus Path / Buscar persona UI + Limpiar + botones 1/2/3 */
+  (function () {
+    function removeFocusUI(root) {
+      root = root || document;
+      const inputs = root.querySelectorAll(
+        'input[placeholder*="Focus Path" i], input[placeholder*="Buscar persona" i]'
+      );
+
+      inputs.forEach((inp) => {
+        const container =
+          inp.closest('.dv-org-search, .org-toolbar, .dv-org-ops, .focus-toolbar, .org-focus-toolbar, .toolbar, .relative, .search, .search-bar, form, div') ||
+          inp.parentElement;
+        if (container && container.parentElement) {
+          container.parentElement.removeChild(container);
+        } else if (container) {
+          container.remove();
+        } else {
+          inp.remove();
+        }
+      });
+
+      (root.querySelectorAll('button, a') || []).forEach((el) => {
+        const txt = (el.textContent || '').trim().toLowerCase();
+        if (txt === 'limpiar') {
+          const holder = el.closest('.dv-org-search, .org-toolbar, .dv-org-ops, .focus-toolbar, .org-focus-toolbar, .toolbar, [role="search"], form');
+          if (holder && holder.parentElement) holder.parentElement.removeChild(holder);
+          else el.remove();
+        }
+      });
+
+      (root.querySelectorAll('button, .btn, a') || []).forEach((btn) => {
+        const txt = (btn.textContent || '').trim();
+        if (/^[123]$/.test(txt)) {
+          const group = btn.parentElement;
+          if (group) {
+            const labels = Array.from(group.children).map((c) => (c.textContent || '').trim());
+            const only123 = labels.length > 0 && labels.every((t) => /^[123]$/.test(t));
+            if (only123) {
+              if (group.parentElement) group.parentElement.removeChild(group);
+              else group.remove();
+            }
+          }
+        }
+      });
+    }
+
+    function run() {
+      removeFocusUI(document);
+    }
+
+    if (document.readyState !== 'loading') run();
+    else document.addEventListener('DOMContentLoaded', run);
+
+    try {
+      const mo = new MutationObserver(() => run());
+      mo.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    } catch (e) {
+      // noop
+    }
+  })();
+
+  /* ssgg-visual-v13 */
+  (function () {
+    function $(sel, root) {
+      return (root || document).querySelector(sel);
+    }
+
+    function $all(sel, root) {
+      return Array.from((root || document).querySelectorAll(sel));
+    }
+
+    function findCardByName(container, name) {
+      const target = name.toLowerCase();
+      const cards = $all('.card', container);
+      for (const c of cards) {
+        const nm = (c.querySelector('.card-name') || {}).textContent || c.textContent || '';
+        const t = nm.trim().toLowerCase();
+        if (t === target || t.includes(target)) return c;
+      }
+      return null;
+    }
+
+    function ensureLayer(container) {
+      let layer = container.querySelector('.ssgg-aux-layer');
+      if (!layer) {
+        layer = document.createElement('div');
+        layer.className = 'ssgg-aux-layer';
+        layer.innerHTML = '<svg></svg>';
+        container.appendChild(layer);
+      }
+      const svg = layer.querySelector('svg');
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      return svg;
+    }
+
+    function relRect(container, el) {
+      const cr = container.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        left: r.left - cr.left,
+        top: r.top - cr.top,
+        width: r.width,
+        height: r.height,
+        right: r.right - cr.left,
+        bottom: r.bottom - cr.top
+      };
+    }
+
+    function drawH(svg, x1, x2, y) {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', `M ${x1} ${y} H ${x2}`);
+      p.setAttribute('class', 'ssgg-aux-path');
+      svg.appendChild(p);
+    }
+
+    function drawV(svg, x, y1, y2) {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', `M ${x} ${y1} V ${y2}`);
+      p.setAttribute('class', 'ssgg-aux-path');
+      svg.appendChild(p);
+    }
+
+    function applyShift(card, dx, dy) {
+      if (!card) return;
+      card.classList.add('ssgg-shift');
+      if (dx != null) card.style.setProperty('--shift-x', (dx | 0) + 'px');
+      if (dy != null) card.style.setProperty('--shift-y', (dy | 0) + 'px');
+    }
+
+    function clearShift(card) {
+      if (!card) return;
+      card.classList.remove('ssgg-shift');
+      card.style.removeProperty('--shift-x');
+      card.style.removeProperty('--shift-y');
+    }
+
+    function alignYTo(target, anchor) {
+      if (!target || !anchor) return;
+      const dy = Math.round(anchor.getBoundingClientRect().top - target.getBoundingClientRect().top);
+      if (dy !== 0) applyShift(target, null, dy);
+    }
+
+    function centerJuan(container, juan, patricio) {
+      if (!juan || !patricio) return;
+      const ul = juan.closest('li') && juan.closest('li').parentElement;
+      if (!ul) return;
+      const ulRect = ul.getBoundingClientRect();
+      const pRect = patricio.getBoundingClientRect();
+      const jRect = juan.getBoundingClientRect();
+      const targetCx = (ulRect.left + (pRect.left + pRect.width / 2)) / 2;
+      const juanCx = jRect.left + jRect.width / 2;
+      const dx = Math.round(targetCx - juanCx);
+      if (Math.abs(dx) > 1) applyShift(juan, dx, null);
+    }
+
+    function ensureJonathanNextToNatalia(container, nat) {
+      if (!nat) return null;
+      const natLI = nat.closest('li');
+      const parentUL = natLI && natLI.parentElement;
+      if (!parentUL) return null;
+      let jon = findCardByName(container, 'Jonathan');
+      if (jon) {
+        const jonLI = jon.closest('li');
+        if (jonLI && natLI && natLI.nextSibling !== jonLI) {
+          parentUL.insertBefore(jonLI, natLI.nextSibling);
+        }
+        return jon;
+      }
+      const li = document.createElement('li');
+      li.innerHTML = '<div class="card"><div class="card-name">Jonathan Ferro</div><div class="card-role">Analista de procesos y Analista mantenimiento</div></div>';
+      parentUL.insertBefore(li, natLI.nextSibling);
+      return li.querySelector('.card');
+    }
+
+    let rafId = 0;
+
+    function queueRender() {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(render);
+    }
+
+    function render() {
+      const cont = $('#ssgg-chart-container');
+      if (!cont) return;
+      const svg = ensureLayer(cont);
+      const roberta = findCardByName(cont, 'Roberta Di Pace') || findCardByName(cont, 'Responsable');
+      const patricio = findCardByName(cont, 'Patricio Varela');
+      const juan = findCardByName(cont, 'Juan Basini');
+      const david = findCardByName(cont, 'David Diaz');
+      const natalia = findCardByName(cont, 'Natalia Gonzalez') || findCardByName(cont, 'Natalia');
+      const jon = ensureJonathanNextToNatalia(cont, natalia) || findCardByName(cont, 'Jonathan');
+      [natalia, jon, juan].forEach(clearShift);
+      if (david) {
+        if (natalia) alignYTo(natalia, david);
+        if (jon) alignYTo(jon, david);
+      }
+      if (juan && patricio) centerJuan(cont, juan, patricio);
+      if (!roberta) return;
+      const rr = relRect(cont, roberta);
+      const startY = rr.top + rr.height / 2;
+      const startX = rr.right;
+      const targets = [];
+      if (natalia) {
+        const nr = relRect(cont, natalia);
+        targets.push({
+          x: nr.left + nr.width / 2,
+          y: nr.top
         });
-      } else {
-        window.addEventListener('load', update);
       }
-    })();
-  </script>
+      if (jon) {
+        const jr = relRect(cont, jon);
+        targets.push({
+          x: jr.left + jr.width / 2,
+          y: jr.top
+        });
+      }
+      if (targets.length) {
+        const endX = Math.max(...targets.map(t => t.x));
+        drawH(svg, startX, endX, startY);
+        targets.forEach(t => drawV(svg, t.x, startY, t.y));
+      }
+    }
+
+    function addScrollListeners(el) {
+      if (!el) return;
+      el.addEventListener('scroll', queueRender, {
+        passive: true
+      });
+      let p = el.parentElement;
+      while (p && p !== document.body) {
+        p.addEventListener('scroll', queueRender, {
+          passive: true
+        });
+        p = p.parentElement;
+      }
+    }
+
+    function ready(fn) {
+      if (document.readyState !== 'loading') fn();
+      else document.addEventListener('DOMContentLoaded', fn);
+    }
+    ready(function () {
+      const cont = document.getElementById('ssgg-chart-container');
+      if (!cont) return;
+      const mo = new MutationObserver(() => queueRender());
+      mo.observe(cont, {
+        childList: true,
+        subtree: true
+      });
+      window.addEventListener('resize', queueRender, {
+        passive: true
+      });
+      window.addEventListener('scroll', queueRender, {
+        passive: true
+      });
+      document.addEventListener('scroll', queueRender, {
+        passive: true
+      });
+      addScrollListeners(cont);
+      setTimeout(queueRender, 450);
+    });
+  })();
+
+  /* ssgg-center-juan-patch */
+  (function () {
+    const GAP = 20;
+    const MAX_RETRIES = 60;
+    let tries = 0;
+
+    function $(s, r) {
+      return (r || document).querySelector(s);
+    }
+
+    function $all(s, r) {
+      return Array.from((r || document).querySelectorAll(s));
+    }
+
+    function findCardByName(name) {
+      const needle = (name || '').trim().toLowerCase();
+      const nodes = $all('.card, [data-node], .node, .org-node');
+      for (const el of nodes) {
+        const txt = (el.textContent || '').trim().toLowerCase();
+        if (txt.includes(needle)) return el;
+      }
+      return null;
+    }
+
+    function clearShift(el) {
+      if (!el) return;
+      el.classList.remove('ssgg-shift');
+      el.style.removeProperty('--shift-x');
+      el.style.removeProperty('--shift-y');
+    }
+
+    function shift(el, dx) {
+      if (!el) return;
+      el.classList.add('ssgg-shift');
+      el.style.setProperty('--shift-x', (Math.round(dx) || 0) + 'px');
+    }
+
+    function redrawConnectors() {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            const cont = $('#ssgg-chart-container') || document;
+            cont.dispatchEvent(new Event('ssgg-redraw', {
+              bubbles: true
+            }));
+          } catch (e) { }
+          try {
+            if (window.SSGG && typeof window.SSGG.redraw === 'function') window.SSGG.redraw();
+          } catch (e) { }
+        });
+      });
+    }
+
+    function computeAndApply() {
+      const juan = findCardByName('juan basini');
+      const patri = findCardByName('patricio varela');
+      if (!juan || !patri) {
+        if (tries++ < MAX_RETRIES) return void setTimeout(computeAndApply, 120);
+        return;
+      }
+      clearShift(juan);
+      const jr = juan.getBoundingClientRect();
+      const pr = patri.getBoundingClientRect();
+      const targetRight = pr.left - GAP;
+      const dx = Math.round(targetRight - jr.right);
+      if (Math.abs(dx) > 1) shift(juan, dx);
+      redrawConnectors();
+    }
+
+    function render() {
+      requestAnimationFrame(computeAndApply);
+    }
+    if (document.readyState !== 'loading') render();
+    else document.addEventListener('DOMContentLoaded', render);
+    window.addEventListener('resize', render);
+    window.addEventListener('orientationchange', render);
+  })();
+
+  /* davoo-normalize-criticality */
+  (function () {
+    const MAP = {
+      "Critico": "Crítico",
+      "critico": "crítico",
+      "Critica": "Crítica",
+      "critica": "crítica"
+    };
+
+    function fixNode(node) {
+      const t = node.textContent;
+      if (!t) return;
+      const replaced = t.replace(/\b(Critico|critico|Critica|critica)\b/g, (m) => MAP[m] || m);
+      if (replaced !== t) node.textContent = replaced;
+    }
+
+    function walk(root) {
+      try {
+        const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        const nodes = [];
+        while (tw.nextNode()) nodes.push(tw.currentNode);
+        nodes.forEach(fixNode);
+      } catch (e) { }
+    }
+
+    function run() {
+      walk(document.body);
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", run);
+    } else {
+      run();
+    }
+    try {
+      const mo = new MutationObserver((muts) => {
+        muts.forEach((m) => {
+          if (m.type === "childList") {
+            m.addedNodes && m.addedNodes.forEach((n) => walk(n));
+          } else if (m.type === "characterData") {
+            fixNode(m.target);
+          }
+        });
+      });
+      mo.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    } catch (e) { }
+  })();
+
+  /* davoo-v6-js */
+  (function () {
+    function enhanceTabs() {
+      document.querySelectorAll('[role="tablist"]').forEach(tablist => {
+        const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+        if (!tabs.length) return;
+        tabs.forEach(t => t.tabIndex = t.getAttribute('aria-selected') === 'true' ? 0 : -1);
+        tablist.addEventListener('keydown', (ev) => {
+          const current = document.activeElement;
+          if (!tabs.includes(current)) return;
+          let i = tabs.indexOf(current);
+          if (ev.key === 'ArrowRight') {
+            i = (i + 1) % tabs.length;
+            ev.preventDefault();
+            tabs[i].focus();
+          } else if (ev.key === 'ArrowLeft') {
+            i = (i - 1 + tabs.length) % tabs.length;
+            ev.preventDefault();
+            tabs[i].focus();
+          } else if (ev.key === 'Home') {
+            i = 0;
+            ev.preventDefault();
+            tabs[i].focus();
+          } else if (ev.key === 'End') {
+            i = tabs.length - 1;
+            ev.preventDefault();
+            tabs[i].focus();
+          }
+        });
+        tabs.forEach(t => {
+          t.addEventListener('click', () => {
+            tabs.forEach(x => {
+              x.setAttribute('aria-selected', 'false');
+              x.tabIndex = -1;
+            });
+            t.setAttribute('aria-selected', 'true');
+            t.tabIndex = 0;
+            t.focus();
+          });
+        });
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        try {
+          enhanceTabs();
+        } catch (e) { }
+      });
+    } else {
+      try {
+        enhanceTabs();
+      } catch (e) { }
+    }
+  })();
+
+  /* davoo-hotfix-filters */
+  (function () {
+    function getValues(data, key) {
+      try {
+        return data.map(it => {
+          if (!it) return null;
+          if (it[key] !== undefined) return it[key];
+          const low = key.toLowerCase();
+          for (const k in it) {
+            if (k && k.toLowerCase() === low) return it[k];
+          }
+          return null;
+        }).filter(Boolean);
+      } catch (e) {
+        return [];
+      }
+    }
+    window.populateFilters = function (data) {
+      try {
+        const provinciaFilter = document.getElementById('provincia-filter');
+        const localidadFilter = document.getElementById('localidad-filter');
+        if (!provinciaFilter || !localidadFilter) return;
+        const provincias = Array.from(new Set(getValues(data, 'Provincia'))).sort();
+        const localidades = Array.from(new Set(getValues(data, 'Localidad'))).sort();
+        const opt = (v) => `<option value="${String(v).replace(/"/g, '&quot;')}">${v}</option>`;
+        provinciaFilter.innerHTML = '<option value="">Todas</option>' + provincias.map(opt).join('');
+        localidadFilter.innerHTML = '<option value="">Todas</option>' + localidades.map(opt).join('');
+      } catch (e) {
+        console.error('populateFilters hotfix', e);
+      }
+    };
+  })();
+
+  /* davoo-orgbar-calc */
+  (function () {
+    function update() {
+      const cont = document.querySelector('#ssgg-chart-container .org-node-wrapper > .org-children');
+      if (!cont) return;
+      const kids = Array.from(cont.children).filter(el => el.classList && el.classList.contains('org-node-wrapper'));
+      if (kids.length < 2) return;
+      const rect = cont.getBoundingClientRect();
+      const c1 = kids[0].getBoundingClientRect().left + kids[0].getBoundingClientRect().width / 2 - rect.left;
+      const c2 = kids[kids.length - 1].getBoundingClientRect().left + kids[kids.length - 1].getBoundingClientRect().width / 2 - rect.left;
+      const a = Math.min(c1, c2),
+        b = Math.max(c1, c2);
+      const left = (a / rect.width) * 100;
+      const width = ((b - a) / rect.width) * 100;
+      cont.style.setProperty('--bar-left', left + '%');
+      cont.style.setProperty('--bar-width', width + '%');
+    }
+    window.addEventListener('resize', update);
+    if ('ResizeObserver' in window) {
+      const ro = new ResizeObserver(() => update());
+      window.addEventListener('load', () => {
+        const cont = document.querySelector('#ssgg-chart-container .org-node-wrapper > .org-children');
+        if (cont) ro.observe(cont);
+        update();
+      });
+    } else {
+      window.addEventListener('load', update);
+    }
+  })();
